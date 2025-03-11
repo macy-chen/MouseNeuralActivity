@@ -10,12 +10,15 @@ output: html_document
 
 # Exploratory Analysis
 
+### Data processing
+
 ```{r, echo=FALSE}
+library(readr)
 library(tidyverse)
 library(dplyr)
+library(ggplot2)
 library(caret) 
 library(ROCR)
-library(readr)
 ```
 
 ```{r}
@@ -29,7 +32,8 @@ summary(session[[1]])
 
 ```{r}
 n.session = length(session)
-meta_data = tibble(
+metadata = tibble(
+  session_id = rep(0, n.session), 
   mouse_name = rep('name', n.session), 
   date_exp = rep('dt', n.session), 
   n_brain_area = rep(0, n.session),
@@ -37,6 +41,111 @@ meta_data = tibble(
   n_trials = rep(0, n.session),
   success_rate = rep(0, n.session)
 )
+
+for(i in 1:n.session){
+  tmp = session[[i]];
+  metadata[i, 1] = i;
+  metadata[i, 2] = tmp$mouse_name;
+  metadata[i, 3] = tmp$date_exp;
+  metadata[i, 4] = length(unique(tmp$brain_area));
+  metadata[i, 5] = dim(tmp$spks[[1]])[1];
+  metadata[i, 6] = length(tmp$feedback_type);
+  metadata[i, 7] = mean(tmp$feedback_type + 1) / 2
+}
+metadata
+```
+
+```{r}
+get_trial_data <- function(session_id, trial_id) {
+  # Retrieve spikes for the specified trial
+  spikes <- session[[session_id]]$spks[[trial_id]]
+  
+  # Check for missing values
+  if (any(is.na(spikes))) {
+    message("Missing value in session ", session_id, ", trial ", trial_id)
+    return(NULL)  # Return NULL if there are missing values
+  }
+  
+  # Calculate neuron spike sums
+  neuron_spike_sum <- rowSums(spikes)
+  
+  # Create a tibble with neuron_spike, brain_area, and calculate region_sum_spike, region_count, and region_mean_spike
+  trial_tibble <- tibble(
+    neuron_spike = neuron_spike_sum,
+    brain_area = session[[session_id]]$brain_area
+  ) %>% 
+    group_by(brain_area) %>% 
+    summarize(
+      region_sum_spike = sum(neuron_spike),
+      region_count = n(),
+      region_mean_spike = mean(neuron_spike)
+    ) 
+  
+  # Add columns for additional trial information
+  trial_tibble <- trial_tibble %>% 
+    add_column(
+      trial_id = trial_id,
+      contrast_left = session[[session_id]]$contrast_left[trial_id],
+      contrast_right = session[[session_id]]$contrast_right[trial_id],
+      feedback_type = session[[session_id]]$feedback_type[trial_id],
+      contrast_diff = abs(session[[session_id]]$contrast_left[trial_id] - session[[session_id]]$contrast_right[trial_id]),
+      mouse_name = session[[session_id]]$mouse_name,
+      session_id = session_id
+    ) 
+  
+  # Return the data for the specific trial
+  return(trial_tibble)
+}
+
+# Example: Get data for trial 1 in session 1
+s1t1_data <- get_trial_data(1, 1)
+s1t1_data
+```
+
+```{r}
+get_session_data <- function(session_id) {
+  # Initialize an empty list to store data for each trial
+  trial_data_list <- list()
+  
+  # Get the total number of trials in the session
+  total_trials <- length(session[[session_id]]$spks)
+  
+  # Iterate over all trials in the session and call get_trial_data for each
+  for (trial_id in seq_len(total_trials)) {
+    # Call the get_trial_data function for each trial
+    trial_data <- get_trial_data(session_id, trial_id)
+    
+    # If the trial data is NULL (i.e., it had missing values), skip it
+    if (!is.null(trial_data)) {
+      trial_data_list[[trial_id]] <- trial_data
+    }
+  }
+  
+  # Combine all trial data into a single tibble
+  session_data <- bind_rows(trial_data_list)
+  
+  return(session_data)
+}
+
+# Example: Get all trial data for session 1
+session1_data <- get_session_data(1)
+session1_data
+```
+
+```{r}
+session_data_list <- list()
+
+for (i in 1:18) {
+  x <- get_session_data(i)
+  session_data_list[[i]] <- x
+}
+
+# Combine all session data
+all_session_data <- bind_rows(session_data_list)
+```
+
+```{r}
+
 ```
 
 # Data Integration
