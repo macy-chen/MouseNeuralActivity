@@ -1,2 +1,2 @@
 # MouseNeuralActivity
-Predictive modelling of mouse decision-making based on neural activity.
+This project analyze neural activity to predict decision-making outcomes in mice based on visual stimuli and corresponding neural responses. Using spike trains from the visual cortex of four mice across 18 sessions, we aim to build a predictive model that classifies trial outcomes as success or failure. The project is structured into three phases: exploratory data analysis to understand the dataset, data integration to address variability across sessions, and model training and evaluation. By leveraging neural activity and stimulus information, this work provides insights into the relationship between neural activity and decision-making behavior in visual tasks for mice. 
